@@ -146,145 +146,112 @@ export const getUser = catchAsyncErrors(async (req, res, next) => {
   }
 });
 
-// Update User Controler
 export const newUpdateUser = catchAsyncErrors(async (req, res, next) => {
-  try {
-    // ✅ Ensure user is authenticated
-    if (!req.user) {
-      return next(new ErrorHandler("User not authenticated!", 401));
-    }
-
-    const { name, email, password } = req.body;
-    const user = await User.findById(req.user.id);
-
-    if (!user) {
-      return next(new ErrorHandler("User not found!", 404));
-    }
-
-    // ✅ Update user details if provided
-    if (name) user.name = name;
-    if (email) user.email = email;
-
-    // ✅ Update password securely if provided
-    if (password) {
-      const salt = await bcrypt.genSalt(10);
-      user.password = await bcrypt.hash(password, salt);
-    }
-
-    // ✅ Handle avatar upload (If provided)
-    if (req.files?.avatar) {
-      const avatarUpload = await cloudinary.v2.uploader.upload(
-        req.files.avatar.tempFilePath,
-        {
-          folder: "avatars",
-        }
-      );
-
-      user.avatar = {
-        public_id: avatarUpload.public_id,
-        url: avatarUpload.secure_url,
-      };
-    }
-
-    // ✅ Handle resume upload (If provided)
-    if (req.files?.resume) {
-      const resumeUpload = await cloudinary.v2.uploader.upload(
-        req.files.resume.tempFilePath,
-        {
-          folder: "resumes",
-        }
-      );
-
-      user.resume = {
-        public_id: resumeUpload.public_id,
-        url: resumeUpload.secure_url,
-      };
-    }
-
-    await user.save(); // ✅ Save changes
-
-    res.status(200).json({
-      success: true,
-      message: "User details updated successfully!",
-      user: {
-        name: user.name,
-        email: user.email,
-        avatar: user.avatar?.url,
-        resume: user.resume?.url,
-      },
-    });
-  } catch (error) {
-    return next(new ErrorHandler("Error updating user details!", 500));
+  // ✅ Ensure user is authenticated
+  if (!req.user) {
+    return next(new ErrorHandler("User not authenticated!", 401));
   }
+
+  // ✅ Prepare update data
+  const newUserData = {
+    fullName: req.body.fullName,
+    email: req.body.email,
+    phone: req.body.phone,
+    about: req.body.about,
+    portfolioURL: req.body.portfolioURL,
+    githubLink: req.body.githubLink,
+    linkedinLink: req.body.linkedinLink,
+    facebookLink: req.body.facebookLink,
+    twitterLink: req.body.twitterLink,
+    instagramLink: req.body.instagramLink,
+  };
+
+  const user = await User.findById(req.user.id);
+  if (!user) {
+    return next(new ErrorHandler("User not found!", 404));
+  }
+
+  // ✅ Update Avatar (if provided)
+  if (req.files?.avatar) {
+    if (user.avatar?.public_id) {
+      await cloudinary.uploader.destroy(user.avatar.public_id); // Remove old avatar
+    }
+
+    const uploadedAvatar = await cloudinary.uploader.upload(
+      req.files.avatar.tempFilePath,
+      {
+        folder: "AVATARS",
+      }
+    );
+
+    newUserData.avatar = {
+      public_id: uploadedAvatar.public_id,
+      url: uploadedAvatar.secure_url,
+    };
+  }
+
+  // ✅ Update Resume (if provided)
+  if (req.files?.resume) {
+    if (user.resume?.public_id) {
+      await cloudinary.uploader.destroy(user.resume.public_id); // Remove old resume
+    }
+
+    const uploadedResume = await cloudinary.uploader.upload(
+      req.files.resume.tempFilePath,
+      {
+        folder: "RESUME",
+      }
+    );
+
+    newUserData.resume = {
+      public_id: uploadedResume.public_id,
+      url: uploadedResume.secure_url,
+    };
+  }
+
+  // ✅ Update user in DB
+  const updatedUser = await User.findByIdAndUpdate(req.user.id, newUserData, {
+    new: true, // Return updated document
+    runValidators: true,
+    useFindAndModify: false, // Validate updated fields
+  });
+
+  res.status(200).json({
+    success: true,
+    message: "User Updated Successfully",
+    user,
+  });
 });
 
-// export const newUpdateUser = catchAsyncErrors(async (req, res, next) => {
-//   // ✅ Ensure user is authenticated
-//   if (!req.user) {
-//     return next(new ErrorHandler("User not authenticated!", 401));
-//   }
+export const updatePassword = catchAsyncErrors(async (req, res, next) => {
+  const { oldPassword, newPassword, confirmPassword } = req.body;
 
-//   // ✅ Prepare update data
-//   const newUserData = {
-//     fullName: req.body.fullName,
-//     email: req.body.email,
-//     phone: req.body.phone,
-//     about: req.body.about,
-//     portfolioURL: req.body.portfolioURL,
-//     githubLink: req.body.githubLink,
-//     linkedinLink: req.body.linkedinLink,
-//     facebookLink: req.body.facebookLink,
-//     twitterLink: req.body.twitterLink,
-//     instagramLink: req.body.instagramLink,
-//   };
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    return next(new ErrorHandler("Please Fill All Fields. ", 400));
+  }
+  // ✅ Find user in the database
+  const user = await User.findById(req.user.id).select("+password");
 
-//   const user = await User.findById(req.user.id);
-//   if (!user) {
-//     return next(new ErrorHandler("User not found!", 404));
-//   }
+  // ✅ Check if the old password is correct
+  const isMatch = await user.matchPassword(oldPassword);
+  if (!isMatch) {
+    return next(new ErrorHandler("Old password is incorrect!", 400));
+  }
+  if(oldPassword === newPassword){
+    return next(new ErrorHandler("Old password and new password can't be the same!", 400));
+  }
 
-//   // ✅ Update Avatar (if provided)
-//   if (req.files?.avatar) {
-//     if (user.avatar?.public_id) {
-//       await cloudinary.uploader.destroy(user.avatar.public_id); // Remove old avatar
-//     }
-
-//     const uploadedAvatar = await cloudinary.uploader.upload(req.files.avatar.tempFilePath, {
-//       folder: "AVATARS",
-//     });
-
-//     newUserData.avatar = {
-//       public_id: uploadedAvatar.public_id,
-//       url: uploadedAvatar.secure_url,
-//     };
-//   }
-
-//   // ✅ Update Resume (if provided)
-//   if (req.files?.resume) {
-//     if (user.resume?.public_id) {
-//       await cloudinary.uploader.destroy(user.resume.public_id); // Remove old resume
-//     }
-
-//     const uploadedResume = await cloudinary.uploader.upload(req.files.resume.tempFilePath, {
-//       folder: "RESUME",
-//     });
-
-//     newUserData.resume = {
-//       public_id: uploadedResume.public_id,
-//       url: uploadedResume.secure_url,
-//     };
-//   }
-
-//   // ✅ Update user in DB
-//   const updatedUser = await User.findByIdAndUpdate(req.user.id, newUserData, {
-//     new: true, // Return updated document
-//     runValidators: true,
-//     useFindAndModify: false, // Validate updated fields
-//   });
-
-//   res.status(200).json({
-//     success: true,
-//     message: "User Updated Successfully",
-//     user: updatedUser,
-//   });
-// });
+  if (newPassword !== confirmPassword) {
+    return next(new ErrorHandler("Confirm Password Does Not Match", 400));
+  }
+  
+  user.password = newPassword;
+  // ✅ Save the updated user
+  await user.save();
+  // ✅ Send response with the updated token
+  res.status(200).json({
+    success: true,
+    message: "Password updated successfully!",
+    token,
+  });
+});
