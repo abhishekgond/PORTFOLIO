@@ -1,5 +1,5 @@
 export const generateToken = (user, message, statusCode, res) => {
-  const token = user.generateToken();
+  const token = user.generateJsonWebToken();
   res
     .status(statusCode)
     .cookie("token", token, {

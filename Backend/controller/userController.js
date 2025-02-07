@@ -3,6 +3,8 @@ import ErrorHandler from "../middlewares/error.js";
 import User from "../models/userSchema.js";
 import { v2 as cloudinary } from "cloudinary";
 import { generateToken } from "../utils/jswTocken.js";
+import { sendEmail } from "../utils/sendEmail.js";
+import crypto from "crypto";
 
 export const register = catchAsyncErrors(async (req, res, next) => {
   if (!req.files || Object.keys(req.files).length === 0) {
@@ -237,14 +239,16 @@ export const updatePassword = catchAsyncErrors(async (req, res, next) => {
   if (!isMatch) {
     return next(new ErrorHandler("Old password is incorrect!", 400));
   }
-  if(oldPassword === newPassword){
-    return next(new ErrorHandler("Old password and new password can't be the same!", 400));
+  if (oldPassword === newPassword) {
+    return next(
+      new ErrorHandler("Old password and new password can't be the same!", 400)
+    );
   }
 
   if (newPassword !== confirmPassword) {
     return next(new ErrorHandler("Confirm Password Does Not Match", 400));
   }
-  
+
   user.password = newPassword;
   // ✅ Save the updated user
   await user.save();
@@ -254,4 +258,101 @@ export const updatePassword = catchAsyncErrors(async (req, res, next) => {
     message: "Password updated successfully!",
     token,
   });
+});
+
+// Writing This function to get user without login
+export const getUserInfoForPortfolio = catchAsyncErrors(
+  async (req, res, next) => {
+    const id = "67a230142d8a2aa16a765a17";
+    const user = await User.findById(id);
+    res.status(200).json({
+      success: true,
+      user,
+    });
+  }
+);
+
+export const forgotPassword = catchAsyncErrors(async (req, res, next) => {
+  const user = await User.findOne({ email: req.body.email });
+
+  if (!user) {
+    return next(new ErrorHandler("User Not Found", 404));
+  }
+
+  // Generate reset token
+  const resetToken = user.getResetPasswordToken();
+
+  // Save only after setting token fields
+  await user.save({ validateBeforeSave: false });
+
+  const resetPasswordUrl = `${process.env.DASHBOARD_URL}/password/reset/${resetToken}`;
+
+  const message = `
+    <h2>Hello ${user.fullName},</h2>
+    <p>Click the link below to reset your password:</p>
+    \n\n
+    ${resetPasswordUrl}
+    
+    <h1> \n </h1>
+    <a href="${resetPasswordUrl}" style="padding: 10px; background: blue; color: white; text-decoration: none; border-radius: 5px;">Reset Password</a>
+    <p>If you didn't request this, please ignore it.</p>
+  `;
+
+  try {
+    await sendEmail({
+      email: user.email,
+      subject: "Password Reset Request",
+      message,
+    });
+
+    res.status(200).json({
+      success: true,
+      message: `Email sent To ${user.email} successfully!`,
+    });
+  } catch (error) {
+    // Rollback reset token if email fails
+    user.resetPasswordToken = undefined;
+    user.resetPasswordExpire = undefined;
+    await user.save();
+
+    return next(new ErrorHandler(error.message, 500));
+  }
+});
+
+export const resetPassword = catchAsyncErrors(async (req, res, next) => {
+  const { token } = req.params;
+  // console.log("Params received:", req.params); // Using To debug Code
+  // console.log("Reset Token:", token); // using to debugging code
+  const resetPasswordToken = crypto
+    .createHash("sha256")
+    .update(token)
+    .digest("hex");
+
+  const user = await User.findOne({
+    resetPasswordToken,
+    resetPasswordExpire: { $gt: Date.now() },
+  });
+
+  if (!token) {
+    return next(new ErrorHandler("Reset token is required", 400));
+  }
+
+  if (!user) {
+    return next(new ErrorHandler("Invalid or Expired Reset Token", 401));
+  }
+
+  if (req.body.password !== req.body.confirmPassword) {
+    return next(new ErrorHandler("Passwords Do Not Match", 400));
+  }
+
+  // Update password and reset token fields before saving
+  user.password = await req.body.password;
+  user.resetPasswordToken = undefined;
+  user.resetPasswordExpire = undefined;
+
+  // Save only once after all updates
+  await user.save();
+
+  // Generate new token and send response
+  generateToken(user, "Password Reset Successfully", 200, res);
 });

@@ -1,7 +1,7 @@
 import mongoose from "mongoose";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
-
+import crypto from "crypto"; // core module import
 // Define the schema
 const userSchema = new mongoose.Schema(
   {
@@ -114,6 +114,19 @@ userSchema.set("toObject", {
     return ret;
   },
 });
+
+userSchema.methods.getResetPasswordToken =  function () {
+  // ✅ Generate a random token
+  const resetToken = crypto.randomBytes(20).toString("hex");
+
+  // ✅ Hash the token and store it in the database
+  this.resetPasswordToken = crypto.createHash("sha256").update(resetToken).digest("hex");
+  // ✅ Set expiration time (15 minutes)
+  this.resetPasswordExpire = Date.now() + 15 * 60 * 1000;
+  // ✅ Return the plain token (not the hashed one)
+  return resetToken;
+};
+
 
 // Create the model
 const User = mongoose.model("User", userSchema);
