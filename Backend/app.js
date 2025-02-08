@@ -8,7 +8,9 @@ import { errorMiddleware } from "./middlewares/error.js";
 import messageRouter from "./router/messageRoutes.js";
 import userRouter from "./router/userRoutes.js";
 import timeLineRoutes from "./router/timeLineRouts.js";
-import applicationRoutes from "./router/applicationRoutes.js"
+import skillRoutes from "./router/skillRoutes.js";
+import projectRoutes from "./router/projectRautes.js";
+import applicationRoutes from "./router/applicationRoutes.js";
 const app = express();
 dotenv.config({ path: "./config/config.env" });
 app.use(
@@ -36,5 +38,7 @@ app.use("/api/v1/message", messageRouter);
 app.use("/api/v1/user", userRouter);
 app.use("/api/v1/timeline", timeLineRoutes);
 app.use("/api/v1/application", applicationRoutes);
+app.use("/api/v1/skill", skillRoutes);
+app.use("/api/v1/project", projectRoutes);
 app.use(errorMiddleware);
 export default app;
