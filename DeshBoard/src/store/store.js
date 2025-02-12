@@ -1,9 +1,9 @@
-import {} from "@reduxjs/toolkit";
+import { configureStore } from "@reduxjs/toolkit";
+import userReducer from "./slice/userSlice";
 
-
-// Setup React-Redux 
-const store = configureStore({
+// Setup React-Redux
+export const store = configureStore({
   reducer: {
-    // Add your reducers here
-  }
-})
+    user: userReducer,
+  },
+});

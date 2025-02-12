@@ -1,4 +1,5 @@
 import app from "./app.js";
+import express from "express";
 import cloudinary from "cloudinary";
 import dotenv from "dotenv";
 cloudinary.v2.config({
@@ -7,6 +8,9 @@ cloudinary.v2.config({
   api_secret: process.env.CLOUDINARY_API_SECRET,
 });
 const port = process.env.PORT || 3001; // Change 3000 to 3001
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
 app.listen(port, () => {
   console.log(`Server is running on port ${port}`);
 });

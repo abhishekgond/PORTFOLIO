@@ -2,20 +2,31 @@ import React, { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Link } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import { useDispatch, useSelector } from "react-redux";
+import { clearAllError, login } from "@/store/slice/userSlice";
+import { toast } from "react-toastify";
 
 const Login = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [loading, setLoading] = useState(false);
-
+  const { loading, isAuthenticated, error } = useSelector(
+    (state) => state.user
+  );
+  const dispatch = useDispatch();
+  const navigateTo = useNavigate();
   const handleLogin = () => {
-    setLoading(true);
-    setTimeout(() => {
-      setLoading(false);
-      alert("Login successful (Demo)"); // Replace with actual login logic
-    }, 2000);
+    dispatch(login(email, password));
   };
+  useEffect(() => {
+    if (error) {
+      toast.error(error);
+      dispatch(clearAllError());
+    }
+    if (isAuthenticated) {
+      navigateTo("/");
+    }
+  }, [dispatch, error, loading, isAuthenticated]);
 
   return (
     <div className="w-full lg:grid lg:min-h-[100vh] lg:grid-cols-2 xl:min-h-[100vh]">

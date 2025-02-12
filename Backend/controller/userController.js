@@ -100,6 +100,18 @@ export const login = catchAsyncErrors(async (req, res, next) => {
 
   res.status(200).json({
     success: true,
+    user: {
+      fullName: user.fullName,
+      email: user.email,
+      phone: user.phone,
+      about: user.about,
+      portfolioURL: user.portfolioURL,
+      githubLink: user.githubLink,
+      linkedinLink: user.linkedinLink,
+      facebookLink: user.facebookLink,
+      twitterLink: user.twitterLink,
+      instagramLink: user.instagramLink,
+    },
     message: "Logged In Successfully",
     token,
   });
